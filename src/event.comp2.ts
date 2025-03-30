@@ -226,7 +226,7 @@ export class FlexEvent<Events extends Record<string, any> = Record<string, any>>
     }
 
     if (isAsync) {
-      return Promise.all([...promises, ...childPromises]).then(results => 
+      return Promise.allSettled([...promises, ...childPromises]).then(results => 
         results.flat()
       );
     }
@@ -301,6 +301,9 @@ export class FlexEvent<Events extends Record<string, any> = Record<string, any>>
     event: IEvent<K, Events[K]>,
     retain: boolean = false
   ): void {
+    // 重置已处理的监听器集合，确保每个新事件都能触发所有匹配的监听器
+    this._processedListeners.clear();
+    
     if (retain) {
       this._retainedEvents.set(event.type, event as IEvent<keyof Events & string, Events[keyof Events]>);
     }
@@ -324,7 +327,7 @@ export class FlexEvent<Events extends Record<string, any> = Record<string, any>>
     event: IEvent<K, Events[K]>,
     retain: boolean = false
   ): Promise<Array<{ status: string; value?: any; reason?: any; }>> {
-    // 清理已处理的监听器集合
+    // 重置已处理的监听器集合，确保每个新事件都能触发所有匹配的监听器
     this._processedListeners.clear();
     
     if (retain) {
@@ -339,17 +342,7 @@ export class FlexEvent<Events extends Record<string, any> = Record<string, any>>
       true 
     ) || [];
     
-    // 将所有结果展平并过滤掉undefined
-    const flattenedResults = results.reduce((acc, val) => {
-      if (Array.isArray(val)) {
-        acc.push(...val);
-      } else if (val !== undefined) {
-        acc.push(val);
-      }
-      return acc;
-    }, [] as any[]);
-    
-    return Promise.allSettled(flattenedResults);
+    return Promise.allSettled(results.flat().filter(r => r !== undefined));
   }
 
   /**
